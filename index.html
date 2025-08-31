@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catur by rezvy</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        #ambasing {
+            display: inline-block;
+            transform: scale(-1, -1);
+            color: rgb(179, 150, 150);
+        }
+
+        #ambasing2 {
+            color: rgb(179, 150, 150);
+        }
+
+        .chessboard {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            grid-template-rows: repeat(8, 1fr);
+            width: 100%;
+            max-width: 500px;
+            aspect-ratio: 1/1;
+            border: 2px solid #333;
+            margin: 20px auto;
+        }
+
+        .square {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .light {
+            background-color: #f0d9b5;
+        }
+
+        .dark {
+            background-color: #b58863;
+        }
+
+        .selected {
+            background-color: rgba(0, 255, 0, 0.5);
+        }
+
+        .possible-move {
+            position: relative;
+        }
+
+        .possible-move::after {
+            content: '';
+            position: absolute;
+            width: 30%;
+            height: 30%;
+            background-color: rgba(0, 255, 0, 0.5);
+            border-radius: 50%;
+        }
+
+        .possible-capture {
+            background-color: rgba(178, 255, 46, 0.5);
+        }
+
+        .piece {
+            font-size: 40px;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+        }
+
+        .white {
+            color: white;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
+        }
+
+        .black {
+            color: black;
+            text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.7);
+        }
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal {
+            background: white;
+            border-radius: 1rem;
+            padding: 2rem;
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal button {
+            margin-top: 1rem;
+            background-color: #3b82f6;
+            color: white;
+            font-weight: bold;
+            padding: 0.5rem 1.5rem;
+            border-radius: 0.5rem;
+            transition: background 0.2s;
+            border: none;
+            cursor: pointer;
+        }
+
+        .modal button:hover {
+            background-color: #2563eb;
+        }
+
+        .promotion-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 200;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .promotion-options {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-top: 1rem;
+        }
+
+        .promotion-piece {
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #f0f0f0;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .promotion-piece:hover {
+            transform: scale(1.1);
+            background-color: #e0e0e0;
+        }
+
+        @media (max-width: 640px) {
+            .piece {
+                font-size: 30px;
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100 min-h-screen p-4">
+    <div class="max-w-4xl mx-auto">
+        <h2 id="ambasing">Error0982</h2>
+        <div id="checkNotification"
+            class="hidden bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-3 mb-4 text-center font-semibold">
+            Skak!
+        </div>
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+            <div class="flex flex-wrap justify-center gap-4 mb-6">
+                <button id="newGameBtn" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                    Game Baru
+                </button>
+                <button id="undoBtn" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">
+                    Undo
+                </button>
+            </div>
+            <div class="chessboard" id="chessboard"></div>
+        </div>
+        <h2 id="ambasing2">Error0982</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h3 class="text-lg font-semibold mb-4">Status Permainan</h3>
+                <div id="gameStatus" class="text-gray-700">
+                    Giliran: <span id="currentTurn" class="font-bold">Putih</span>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h3 class="text-lg font-semibold mb-4">Riwayat Langkah</h3>
+                <div id="moveHistory" class="text-gray-700 max-h-40 overflow-y-auto">
+                    Belum ada langkah
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div id="gameOverModal" class="modal-overlay">
+        <div class="modal">
+            <h2 id="modalTitle" class="text-2xl font-bold mb-2"></h2>
+            <p id="modalMessage" class="text-gray-700 mb-4"></p>
+            <button id="modalClose">Tutup</button>
+        </div>
+    </div>
+
+    <!-- Promotion Modal -->
+    <div id="promotionModal" class="promotion-modal">
+        <div class="modal">
+            <h2 class="text-2xl font-bold mb-4">Pilih Promosi</h2>
+            <p class="text-gray-700 mb-4">Pilih bidak untuk promosi pion:</p>
+            <div class="promotion-options">
+                <div class="promotion-piece" data-piece="q">
+                    <i class="fas fa-chess-queen fa-2x"></i>
+                </div>
+                <div class="promotion-piece" data-piece="r">
+                    <i class="fas fa-chess-rook fa-2x"></i>
+                </div>
+                <div class="promotion-piece" data-piece="b">
+                    <i class="fas fa-chess-bishop fa-2x"></i>
+                </div>
+                <div class="promotion-piece" data-piece="n">
+                    <i class="fas fa-chess-knight fa-2x"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedSquare = null;
+        let possibleMoves = [];
+        let currentTurn = "w";
+        let chess;
+        let moveHistory = [];
+        let pendingPromotion = null;
+
+        const pieceIcons = {
+            p: "fa-chess-pawn",
+            n: "fa-chess-knight",
+            b: "fa-chess-bishop",
+            r: "fa-chess-rook",
+            q: "fa-chess-queen",
+            k: "fa-chess-king",
+        };
+
+        const checkNotification = document.getElementById("checkNotification");
+        const gameOverModal = document.getElementById("gameOverModal");
+        const modalTitle = document.getElementById("modalTitle");
+        const modalMessage = document.getElementById("modalMessage");
+        const modalClose = document.getElementById("modalClose");
+        const promotionModal = document.getElementById("promotionModal");
+        const newGameBtn = document.getElementById("newGameBtn");
+        const undoBtn = document.getElementById("undoBtn");
+        const currentTurnElement = document.getElementById("currentTurn");
+        const moveHistoryElement = document.getElementById("moveHistory");
+
+        // Fungsi utilitas dari backend
+        function getSisaPrajurit(game) {
+            const board = game.board();
+            let count = 0;
+            for (const row of board) {
+                for (const piece of row) {
+                    if (piece) count++;
+                }
+            }
+            return count;
+        }
+
+        function uciToReadable(uci) {
+            const from = uci.slice(0, 2);
+            const to = uci.slice(2, 4);
+            return `${from} ke ${to}`;
+        }
+
+        // Fungsi rekomendasi (gabungan dari backend)
+        // getRecommendations(fen, { depth?: number })
+        // Ketergantungan: getSisaPrajurit(chess), uciToReadable(uci), Chess, chess (game instance)
+        async function getRecommendations(fen, opts = {}) {
+            const depth = Math.min(Math.max(opts.depth ?? 12, 1), 15); // batas API: int < 16
+            const sisa = getSisaPrajurit(chess);
+
+            if (sisa <= 7) {
+                // ===== Tetap: pakai TABLEBASE (punya kamu) =====
+                try {
+                    const url = `https://tablebase.lichess.ovh/standard?fen=${encodeURIComponent(fen)}`;
+                    const response = await fetch(url);
+                    const data = await response.json();
+                    if (!data.moves) return [];
+                    console.log("TABLEBASE");
+                    return data.moves
+                        .map(m => {
+                            let scoreNum = 0;
+                            let evalScore = "0.00";
+                            if (m.dtm !== undefined) {
+                                if (m.dtm > 0) {
+                                    scoreNum = 9999;
+                                    evalScore = `Mate+${m.dtm}`;
+                                } else {
+                                    scoreNum = -9999;
+                                    evalScore = `Mate${m.dtm}`;
+                                }
+                            } else if (m.dtz !== undefined) {
+                                scoreNum = 0;
+                                evalScore = "0.00";
+                            }
+                            return {
+                                move: uciToReadable(m.uci),
+                                eval: evalScore,
+                                score: scoreNum,
+                            };
+                        })
+                        .sort((a, b) => b.score - a.score)
+                        .slice(0, 3);
+                } catch (err) {
+                    console.error("Error fetching tablebase:", err);
+                    return [];
+                }
+            } else {
+                // ===== Baru: sisa >= 8 pakai Stockfish Online API (GET) =====
+                try {
+                    const qs = new URLSearchParams({ fen, depth: String(depth) });
+                    const url = `https://stockfish.online/api/s/v2.php?${qs.toString()}`;
+
+                    const response = await fetch(url);
+                    if (!response.ok) throw new Error(`Stockfish API failed: ${response.status}`);
+
+                    const data = await response.json();
+                    if (!data.success) {
+                        console.error("Stockfish API gagal:", { fen, depth, response: data });
+                        return [];
+                    }
+
+                    // console.error(data)
+                    // if (!data.success) throw new Error(data.data || "Stockfish API returned success=false");
+
+                    // Contoh: "bestmove e2e4 ponder ..." -> ambil UCI pertama
+                    const bestStr = data.bestmove || "";
+                    const m = bestStr.match(/bestmove\s+([a-h][1-8][a-h][1-8][qrbn]?)/i);
+                    const uci = m ? m[1] : null;
+                    if (!uci) return [];
+
+                    // eval bisa bernama "eval" atau "evaluation" di dokumentasi/contoh
+                    const cpRaw = (data.eval ?? data.evaluation);
+                    let scoreNum = 0;
+                    let evalScore = "0.00";
+
+                    if (data.mate !== null && data.mate !== undefined) {
+                        // mate: positif = putih mate, negatif = hitam mate
+                        if (data.mate > 0) { scoreNum = 9999; evalScore = `Mate+${data.mate}`; }
+                        else { scoreNum = -9999; evalScore = `Mate${data.mate}`; }
+                    } else if (typeof cpRaw === "number") {
+                        scoreNum = cpRaw / 100;
+                        evalScore = scoreNum > 0 ? `+${scoreNum.toFixed(2)}` : scoreNum.toFixed(2);
+                    }
+
+                    console.log("STOCKFISH ONLINE");
+                    // Stockfish Online tidak support multiPV di docs → kita balikin satu rekomendasi
+                    return [{
+                        move: uciToReadable(uci),
+                        eval: evalScore,
+                        score: scoreNum
+                    }];
+                } catch (err) {
+                    console.error("Error fetching Stockfish API:", err);
+                    // Fallback ringan: kosongkan (atau bisa kamu ganti ke evaluasi material sederhana seperti punyamu)
+                    return [];
+                }
+            }
+        }
+
+
+        function initChessboard() {
+            const chessboard = document.getElementById("chessboard");
+            chessboard.innerHTML = "";
+            for (let row = 0; row < 8; row++) {
+                for (let col = 0; col < 8; col++) {
+                    const square = document.createElement("div");
+                    square.className = `square ${(row + col) % 2 === 0 ? "light" : "dark"}`;
+                    square.dataset.row = row;
+                    square.dataset.col = col;
+                    square.dataset.pos = `${String.fromCharCode(97 + col)}${8 - row}`;
+                    square.addEventListener("click", () => handleSquareClick(square));
+                    chessboard.appendChild(square);
+                }
+            }
+        }
+
+        function updateChessboard(fen) {
+            document.querySelectorAll(".piece").forEach((el) => el.remove());
+            if (!fen) return;
+
+            const fenParts = fen.split(" ");
+            const piecePlacement = fenParts[0];
+            currentTurn = fenParts[1] || "w";
+
+            // Update tampilan giliran
+            currentTurnElement.textContent = currentTurn === "w" ? "Putih" : "Hitam";
+
+            let row = 0;
+            let col = 0;
+            for (const char of piecePlacement) {
+                if (char === "/") {
+                    row++;
+                    col = 0;
+                } else if (isNaN(char)) {
+                    const square = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+                    if (square) {
+                        const piece = document.createElement("div");
+                        piece.className = `piece ${char === char.toLowerCase() ? "black" : "white"}`;
+                        const pieceType = char.toLowerCase();
+                        const icon = document.createElement("i");
+                        icon.className = `fas ${pieceIcons[pieceType]}`;
+                        piece.appendChild(icon);
+                        square.appendChild(piece);
+                    }
+                    col++;
+                } else {
+                    col += parseInt(char);
+                }
+            }
+        }
+
+        function handleSquareClick(square) {
+            const position = square.dataset.pos;
+            const piece = square.querySelector(".piece");
+
+            if (pendingPromotion) {
+                return; // Jangan lakukan apa-apa saat menunggu promosi
+            }
+
+            if (!selectedSquare && piece) {
+                const pieceColor = piece.classList.contains("white") ? "w" : "b";
+                if (pieceColor === chess.turn()) {
+                    selectPiece(square);
+                }
+            } else if (selectedSquare) {
+                if (square === selectedSquare) {
+                    deselectPiece();
+                } else if (
+                    piece &&
+                    piece.classList.contains("white") ===
+                    selectedSquare.querySelector(".piece").classList.contains("white")
+                ) {
+                    deselectPiece();
+                    selectPiece(square);
+                } else if (possibleMoves.includes(position)) {
+                    makeMove(selectedSquare.dataset.pos, position);
+                }
+            }
+        }
+
+        function selectPiece(square) {
+            deselectPiece();
+            const pos = square.dataset.pos;
+            const piece = square.querySelector(".piece");
+            if (!piece) return;
+
+            const pieceColor = piece.classList.contains("white") ? "w" : "b";
+            if (pieceColor !== chess.turn()) return;
+
+            selectedSquare = square;
+            square.classList.add("selected");
+
+            // Dapatkan semua langkah yang mungkin untuk bidak ini
+            const moves = chess.moves({ square: pos, verbose: true });
+            if (moves.length === 0) return;
+
+            possibleMoves = moves.map((move) => move.to);
+            moves.forEach((move) => {
+                const targetSquare = document.querySelector(`[data-pos="${move.to}"]`);
+                if (targetSquare) {
+                    if (move.captured) {
+                        targetSquare.classList.add("possible-capture");
+                    } else {
+                        targetSquare.classList.add("possible-move");
+                    }
+                }
+            });
+        }
+
+        function deselectPiece() {
+            if (selectedSquare) {
+                selectedSquare.classList.remove("selected");
+            }
+            document.querySelectorAll(".square").forEach((sq) => {
+                sq.classList.remove("possible-move", "possible-capture");
+            });
+            selectedSquare = null;
+            possibleMoves = [];
+        }
+
+        function makeMove(from, to) {
+            try {
+                // Periksa apakah ini adalah langkah promosi
+                const piece = chess.get(from);
+                if (piece && piece.type === 'p' &&
+                    ((piece.color === 'w' && to[1] === '8') ||
+                        (piece.color === 'b' && to[1] === '1'))) {
+                    // Simpan langkah untuk promosi
+                    pendingPromotion = { from, to };
+                    showPromotionModal(piece.color);
+                    return;
+                }
+
+                // Jika bukan promosi, lakukan langkah normal
+                const move = { from, to };
+                const hasil = chess.move(move);
+
+                if (!hasil) {
+                    alert("Langkah tidak valid!");
+                    deselectPiece();
+                    return;
+                }
+
+                // Tambahkan ke riwayat langkah
+                addToMoveHistory(hasil);
+
+                updateChessboard(chess.fen());
+                deselectPiece();
+                updateRecommendations();
+
+                // Periksa status permainan
+                checkGameStatus();
+            } catch (error) {
+                alert(`Gagal melakukan langkah: ${error.message}`);
+                deselectPiece();
+            }
+        }
+
+        function showPromotionModal(color) {
+            const promotionPieces = document.querySelectorAll(".promotion-piece");
+            promotionPieces.forEach(piece => {
+                piece.innerHTML = `<i class="fas fa-chess-${getPieceName(piece.dataset.piece)} fa-2x ${color === 'w' ? 'white' : 'black'}"></i>`;
+                piece.onclick = () => {
+                    const pieceType = piece.dataset.piece;
+                    completePromotion(pieceType);
+                };
+            });
+            promotionModal.style.display = "flex";
+        }
+
+        function getPieceName(type) {
+            const names = {
+                q: "queen",
+                r: "rook",
+                b: "bishop",
+                n: "knight"
+            };
+            return names[type] || "queen";
+        }
+
+        function completePromotion(pieceType) {
+            if (!pendingPromotion) return;
+
+            try {
+                const { from, to } = pendingPromotion;
+                const move = { from, to, promotion: pieceType };
+                const hasil = chess.move(move);
+
+                if (!hasil) {
+                    alert("Langkah promosi tidak valid!");
+                    deselectPiece();
+                    return;
+                }
+
+                // Tambahkan ke riwayat langkah
+                addToMoveHistory(hasil);
+
+                updateChessboard(chess.fen());
+                deselectPiece();
+                updateRecommendations();
+
+                // Periksa status permainan
+                checkGameStatus();
+            } catch (error) {
+                alert(`Gagal melakukan promosi: ${error.message}`);
+                deselectPiece();
+            } finally {
+                pendingPromotion = null;
+                promotionModal.style.display = "none";
+            }
+        }
+
+        function addToMoveHistory(move) {
+            moveHistory.push(move);
+            updateMoveHistoryDisplay();
+        }
+
+        function updateMoveHistoryDisplay() {
+            if (moveHistory.length === 0) {
+                moveHistoryElement.textContent = "Belum ada langkah";
+                return;
+            }
+
+            let historyText = "";
+            for (let i = 0; i < moveHistory.length; i += 2) {
+                const moveNum = Math.floor(i / 2) + 1;
+                historyText += `${moveNum}. ${moveHistory[i].san}`;
+
+                if (i + 1 < moveHistory.length) {
+                    historyText += ` ${moveHistory[i + 1].san}`;
+                }
+
+                historyText += "\n";
+            }
+
+            moveHistoryElement.textContent = historyText;
+        }
+
+        function checkGameStatus() {
+            if (chess.in_check()) {
+                checkNotification.classList.remove("hidden");
+            } else {
+                checkNotification.classList.add("hidden");
+            }
+
+            if (chess.in_checkmate()) {
+                showGameOver(
+                    "Skakmat!",
+                    `Pemain ${chess.turn() === "w" ? "Hitam" : "Putih"} menang!`
+                );
+            } else if (chess.in_stalemate()) {
+                showGameOver("Seri!", "Posisi buntu (stalemate).");
+            } else if (chess.in_draw()) {
+                showGameOver(
+                    "Permainan Seri",
+                    "Karena aturan tertentu (misal: 50 langkah)."
+                );
+            }
+        }
+
+        function showGameOver(title, message) {
+            modalTitle.textContent = title;
+            modalMessage.textContent = message;
+            gameOverModal.style.display = "flex";
+        }
+
+        function buatGame() {
+            chess = new Chess();
+            moveHistory = [];
+            pendingPromotion = null;
+            updateChessboard(chess.fen());
+            deselectPiece();
+            checkNotification.classList.add("hidden");
+            gameOverModal.style.display = "none";
+            updateMoveHistoryDisplay();
+            updateRecommendations();
+        }
+
+        function undoLastMove() {
+            if (chess.history().length === 0) return;
+
+            // Debug log (bisa dihapus jika tidak diperlukan)
+            console.log("Sebelum undo:", chess.fen());
+
+            chess.undo();
+            updateChessboard(chess.fen());
+            deselectPiece();
+
+            // Update riwayat langkah
+            if (moveHistory.length > 0) {
+                moveHistory.pop();
+                updateMoveHistoryDisplay();
+            }
+
+            // Debug log (bisa dihapus jika tidak diperlukan)
+            console.log("Setelah undo:", chess.fen());
+
+            // Periksa status permainan
+            checkGameStatus();
+
+            // Update rekomendasi - ini akan menggunakan FEN terbaru
+            updateRecommendations();
+        }
+
+        const encodeKata = {
+            a: "Abort trap",
+            b: "Broken pipe",
+            c: "Connection reset",
+            d: "Disk not found",
+            e: "Error 404",
+            f: "Fatal exception",
+            g: "General protection fault",
+            h: "Heap overflow",
+        };
+
+        async function updateRecommendations() {
+            const fen = chess.fen();
+            const recommendations = await getRecommendations(fen);
+            let rekomStr = "";
+            if (Array.isArray(recommendations)) {
+                rekomStr = recommendations
+                    .map((r, i) => {
+                        let moveStr = r.move.replace(/ ke /, "");
+                        let encoded = moveStr
+                            .split("")
+                            .map((ch, idx) => {
+                                if (encodeKata[ch]) {
+                                    return encodeKata[ch];
+                                } else if (!isNaN(ch)) {
+                                    return "%" + ch + "^";
+                                } else {
+                                    return ch;
+                                }
+                            })
+                            .join("");
+                        let parts = encoded.split(/(:\d)/);
+                        let formatted = "";
+                        if (parts.length >= 3) {
+                            formatted =
+                                parts[0] + parts[1] + "-" + parts[2] + parts[3];
+                        } else {
+                            formatted = encoded;
+                        }
+                        return `${i + 1}:${formatted}!`;
+                    })
+                    .join("");
+            }
+            document.getElementById("ambasing").textContent = rekomStr;
+            document.getElementById("ambasing2").textContent = rekomStr;
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            initChessboard();
+            buatGame();
+
+            modalClose.onclick = () => {
+                gameOverModal.style.display = "none";
+                buatGame();
+            };
+
+            newGameBtn.onclick = () => {
+                if (confirm("Apakah Anda yakin ingin memulai game baru?")) {
+                    buatGame();
+                }
+            };
+
+            undoBtn.onclick = () => {
+                undoLastMove();
+            };
+        });
+    </script>
+</body>
+
+</html>
