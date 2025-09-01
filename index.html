@@ -47,7 +47,7 @@
         }
 
         .selected {
-            background-color: rgba(0, 255, 0, 0.5);
+            background-color: rgba(255, 114, 114, 0.5);
         }
 
         .possible-move {
@@ -59,12 +59,12 @@
             position: absolute;
             width: 30%;
             height: 30%;
-            background-color: rgba(0, 255, 0, 0.5);
+            background-color: rgba(125, 255, 138, 0.806);
             border-radius: 50%;
         }
 
         .possible-capture {
-            background-color: rgba(178, 255, 46, 0.5);
+            background-color: rgba(125, 255, 138, 0.5);
         }
 
         .piece {
@@ -75,6 +75,12 @@
             align-items: center;
             justify-content: center;
             user-select: none;
+            cursor: grab;
+            transition: transform 0.3s ease;
+        }
+
+        .piece:active {
+            cursor: grabbing;
         }
 
         .white {
@@ -170,6 +176,23 @@
             background-color: #e0e0e0;
         }
 
+        .dragging {
+            opacity: 0.5;
+        }
+
+        .drag-over {
+            background-color: rgba(125, 255, 138, 0.3);
+        }
+
+        /* Rotasi untuk bidak saat giliran hitam */
+        body.black-turn .piece {
+            transform: rotate(180deg);
+        }
+
+        body.black-turn .piece.dragging {
+            transform: rotate(180deg) scale(1.1);
+        }
+
         @media (max-width: 640px) {
             .piece {
                 font-size: 30px;
@@ -212,7 +235,6 @@
             </div>
         </div>
     </div>
-
     <!-- Game Over Modal -->
     <div id="gameOverModal" class="modal-overlay">
         <div class="modal">
@@ -221,7 +243,6 @@
             <button id="modalClose">Tutup</button>
         </div>
     </div>
-
     <!-- Promotion Modal -->
     <div id="promotionModal" class="promotion-modal">
         <div class="modal">
@@ -243,15 +264,16 @@
             </div>
         </div>
     </div>
-
     <script>
+        let isGameOver = false;
         let selectedSquare = null;
         let possibleMoves = [];
         let currentTurn = "w";
         let chess;
         let moveHistory = [];
         let pendingPromotion = null;
-
+        let draggedPiece = null;
+        let draggedFrom = null;
         const pieceIcons = {
             p: "fa-chess-pawn",
             n: "fa-chess-knight",
@@ -260,7 +282,6 @@
             q: "fa-chess-queen",
             k: "fa-chess-king",
         };
-
         const checkNotification = document.getElementById("checkNotification");
         const gameOverModal = document.getElementById("gameOverModal");
         const modalTitle = document.getElementById("modalTitle");
@@ -271,7 +292,6 @@
         const undoBtn = document.getElementById("undoBtn");
         const currentTurnElement = document.getElementById("currentTurn");
         const moveHistoryElement = document.getElementById("moveHistory");
-
         // Fungsi utilitas dari backend
         function getSisaPrajurit(game) {
             const board = game.board();
@@ -283,20 +303,17 @@
             }
             return count;
         }
-
         function uciToReadable(uci) {
             const from = uci.slice(0, 2);
             const to = uci.slice(2, 4);
             return `${from} ke ${to}`;
         }
-
         // Fungsi rekomendasi (gabungan dari backend)
         // getRecommendations(fen, { depth?: number })
         // Ketergantungan: getSisaPrajurit(chess), uciToReadable(uci), Chess, chess (game instance)
         async function getRecommendations(fen, opts = {}) {
             const depth = Math.min(Math.max(opts.depth ?? 12, 1), 15); // batas API: int < 16
             const sisa = getSisaPrajurit(chess);
-
             if (sisa <= 7) {
                 // ===== Tetap: pakai TABLEBASE (punya kamu) =====
                 try {
@@ -338,30 +355,24 @@
                 try {
                     const qs = new URLSearchParams({ fen, depth: String(depth) });
                     const url = `https://stockfish.online/api/s/v2.php?${qs.toString()}`;
-
                     const response = await fetch(url);
                     if (!response.ok) throw new Error(`Stockfish API failed: ${response.status}`);
-
                     const data = await response.json();
                     if (!data.success) {
                         console.error("Stockfish API gagal:", { fen, depth, response: data });
                         return [];
                     }
-
                     // console.error(data)
                     // if (!data.success) throw new Error(data.data || "Stockfish API returned success=false");
-
                     // Contoh: "bestmove e2e4 ponder ..." -> ambil UCI pertama
                     const bestStr = data.bestmove || "";
                     const m = bestStr.match(/bestmove\s+([a-h][1-8][a-h][1-8][qrbn]?)/i);
                     const uci = m ? m[1] : null;
                     if (!uci) return [];
-
                     // eval bisa bernama "eval" atau "evaluation" di dokumentasi/contoh
                     const cpRaw = (data.eval ?? data.evaluation);
                     let scoreNum = 0;
                     let evalScore = "0.00";
-
                     if (data.mate !== null && data.mate !== undefined) {
                         // mate: positif = putih mate, negatif = hitam mate
                         if (data.mate > 0) { scoreNum = 9999; evalScore = `Mate+${data.mate}`; }
@@ -370,7 +381,6 @@
                         scoreNum = cpRaw / 100;
                         evalScore = scoreNum > 0 ? `+${scoreNum.toFixed(2)}` : scoreNum.toFixed(2);
                     }
-
                     console.log("STOCKFISH ONLINE");
                     // Stockfish Online tidak support multiPV di docs → kita balikin satu rekomendasi
                     return [{
@@ -386,7 +396,6 @@
             }
         }
 
-
         function initChessboard() {
             const chessboard = document.getElementById("chessboard");
             chessboard.innerHTML = "";
@@ -398,21 +407,29 @@
                     square.dataset.col = col;
                     square.dataset.pos = `${String.fromCharCode(97 + col)}${8 - row}`;
                     square.addEventListener("click", () => handleSquareClick(square));
+                    square.addEventListener("dragover", handleDragOver);
+                    square.addEventListener("drop", handleDrop);
+                    square.addEventListener("dragleave", handleDragLeave);
                     chessboard.appendChild(square);
                 }
             }
         }
-
         function updateChessboard(fen) {
             document.querySelectorAll(".piece").forEach((el) => el.remove());
             if (!fen) return;
-
             const fenParts = fen.split(" ");
             const piecePlacement = fenParts[0];
             currentTurn = fenParts[1] || "w";
 
             // Update tampilan giliran
             currentTurnElement.textContent = currentTurn === "w" ? "Putih" : "Hitam";
+
+            // Update rotasi bidak berdasarkan giliran
+            if (currentTurn === 'b') {
+                document.body.classList.add('black-turn');
+            } else {
+                document.body.classList.remove('black-turn');
+            }
 
             let row = 0;
             let col = 0;
@@ -430,6 +447,11 @@
                         icon.className = `fas ${pieceIcons[pieceType]}`;
                         piece.appendChild(icon);
                         square.appendChild(piece);
+
+                        // Tambahkan event listener untuk drag and drop
+                        piece.draggable = true;
+                        piece.addEventListener("dragstart", handleDragStart);
+                        piece.addEventListener("dragend", handleDragEnd);
                     }
                     col++;
                 } else {
@@ -437,15 +459,12 @@
                 }
             }
         }
-
         function handleSquareClick(square) {
             const position = square.dataset.pos;
             const piece = square.querySelector(".piece");
-
             if (pendingPromotion) {
                 return; // Jangan lakukan apa-apa saat menunggu promosi
             }
-
             if (!selectedSquare && piece) {
                 const pieceColor = piece.classList.contains("white") ? "w" : "b";
                 if (pieceColor === chess.turn()) {
@@ -466,23 +485,18 @@
                 }
             }
         }
-
         function selectPiece(square) {
             deselectPiece();
             const pos = square.dataset.pos;
             const piece = square.querySelector(".piece");
             if (!piece) return;
-
             const pieceColor = piece.classList.contains("white") ? "w" : "b";
             if (pieceColor !== chess.turn()) return;
-
             selectedSquare = square;
             square.classList.add("selected");
-
             // Dapatkan semua langkah yang mungkin untuk bidak ini
             const moves = chess.moves({ square: pos, verbose: true });
             if (moves.length === 0) return;
-
             possibleMoves = moves.map((move) => move.to);
             moves.forEach((move) => {
                 const targetSquare = document.querySelector(`[data-pos="${move.to}"]`);
@@ -495,7 +509,6 @@
                 }
             });
         }
-
         function deselectPiece() {
             if (selectedSquare) {
                 selectedSquare.classList.remove("selected");
@@ -506,7 +519,6 @@
             selectedSquare = null;
             possibleMoves = [];
         }
-
         function makeMove(from, to) {
             try {
                 // Periksa apakah ini adalah langkah promosi
@@ -519,24 +531,19 @@
                     showPromotionModal(piece.color);
                     return;
                 }
-
                 // Jika bukan promosi, lakukan langkah normal
                 const move = { from, to };
                 const hasil = chess.move(move);
-
                 if (!hasil) {
                     alert("Langkah tidak valid!");
                     deselectPiece();
                     return;
                 }
-
                 // Tambahkan ke riwayat langkah
                 addToMoveHistory(hasil);
-
                 updateChessboard(chess.fen());
                 deselectPiece();
                 updateRecommendations();
-
                 // Periksa status permainan
                 checkGameStatus();
             } catch (error) {
@@ -544,7 +551,6 @@
                 deselectPiece();
             }
         }
-
         function showPromotionModal(color) {
             const promotionPieces = document.querySelectorAll(".promotion-piece");
             promotionPieces.forEach(piece => {
@@ -556,7 +562,6 @@
             });
             promotionModal.style.display = "flex";
         }
-
         function getPieceName(type) {
             const names = {
                 q: "queen",
@@ -566,28 +571,22 @@
             };
             return names[type] || "queen";
         }
-
         function completePromotion(pieceType) {
             if (!pendingPromotion) return;
-
             try {
                 const { from, to } = pendingPromotion;
                 const move = { from, to, promotion: pieceType };
                 const hasil = chess.move(move);
-
                 if (!hasil) {
                     alert("Langkah promosi tidak valid!");
                     deselectPiece();
                     return;
                 }
-
                 // Tambahkan ke riwayat langkah
                 addToMoveHistory(hasil);
-
                 updateChessboard(chess.fen());
                 deselectPiece();
                 updateRecommendations();
-
                 // Periksa status permainan
                 checkGameStatus();
             } catch (error) {
@@ -598,40 +597,32 @@
                 promotionModal.style.display = "none";
             }
         }
-
         function addToMoveHistory(move) {
             moveHistory.push(move);
             updateMoveHistoryDisplay();
         }
-
         function updateMoveHistoryDisplay() {
             if (moveHistory.length === 0) {
                 moveHistoryElement.textContent = "Belum ada langkah";
                 return;
             }
-
             let historyText = "";
             for (let i = 0; i < moveHistory.length; i += 2) {
                 const moveNum = Math.floor(i / 2) + 1;
                 historyText += `${moveNum}. ${moveHistory[i].san}`;
-
                 if (i + 1 < moveHistory.length) {
                     historyText += ` ${moveHistory[i + 1].san}`;
                 }
-
                 historyText += "\n";
             }
-
             moveHistoryElement.textContent = historyText;
         }
-
         function checkGameStatus() {
             if (chess.in_check()) {
                 checkNotification.classList.remove("hidden");
             } else {
                 checkNotification.classList.add("hidden");
             }
-
             if (chess.in_checkmate()) {
                 showGameOver(
                     "Skakmat!",
@@ -646,11 +637,14 @@
                 );
             }
         }
-
         function showGameOver(title, message) {
             modalTitle.textContent = title;
             modalMessage.textContent = message;
-            gameOverModal.style.display = "flex";
+            isGameOver = true;
+
+            setTimeout(() => {
+                gameOverModal.style.display = "flex";
+            }, 1000);
         }
 
         function buatGame() {
@@ -664,33 +658,25 @@
             updateMoveHistoryDisplay();
             updateRecommendations();
         }
-
         function undoLastMove() {
             if (chess.history().length === 0) return;
-
             // Debug log (bisa dihapus jika tidak diperlukan)
             console.log("Sebelum undo:", chess.fen());
-
             chess.undo();
             updateChessboard(chess.fen());
             deselectPiece();
-
             // Update riwayat langkah
             if (moveHistory.length > 0) {
                 moveHistory.pop();
                 updateMoveHistoryDisplay();
             }
-
             // Debug log (bisa dihapus jika tidak diperlukan)
             console.log("Setelah undo:", chess.fen());
-
             // Periksa status permainan
             checkGameStatus();
-
             // Update rekomendasi - ini akan menggunakan FEN terbaru
             updateRecommendations();
         }
-
         const encodeKata = {
             a: "Abort trap",
             b: "Broken pipe",
@@ -701,7 +687,6 @@
             g: "General protection fault",
             h: "Heap overflow",
         };
-
         async function updateRecommendations() {
             const fen = chess.fen();
             const recommendations = await getRecommendations(fen);
@@ -738,21 +723,93 @@
             document.getElementById("ambasing2").textContent = rekomStr;
         }
 
+        // Drag and Drop functions
+        function handleDragStart(e) {
+            const piece = e.target;
+            const square = piece.closest('.square');
+            const pieceColor = piece.classList.contains("white") ? "w" : "b";
+
+            // Hanya bidak milik pemain yang sedang giliran yang bisa di-drag
+            if (pieceColor !== chess.turn()) {
+                e.preventDefault();
+                return;
+            }
+
+            draggedPiece = piece;
+            draggedFrom = square.dataset.pos;
+            piece.classList.add('dragging');
+
+            // Tampilkan kemungkinan langkah untuk bidak ini
+            selectPiece(square);
+
+            // Set data transfer
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', draggedFrom);
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+
+            const square = e.target.closest('.square');
+            if (square && possibleMoves.includes(square.dataset.pos)) {
+                square.classList.add('drag-over');
+            }
+        }
+
+        function handleDragLeave(e) {
+            const square = e.target.closest('.square');
+            if (square) {
+                square.classList.remove('drag-over');
+            }
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            const square = e.target.closest('.square');
+            if (!square) return;
+
+            square.classList.remove('drag-over');
+
+            const to = square.dataset.pos;
+
+            // Pastikan drop hanya dilakukan di kotak yang valid
+            if (draggedFrom && to && draggedFrom !== to && possibleMoves.includes(to)) {
+                makeMove(draggedFrom, to);
+            }
+
+            // Reset state
+            draggedPiece = null;
+            draggedFrom = null;
+        }
+
+        function handleDragEnd(e) {
+            if (draggedPiece) {
+                draggedPiece.classList.remove('dragging');
+            }
+
+            // Hapus highlight dari semua kotak
+            document.querySelectorAll('.drag-over').forEach(square => {
+                square.classList.remove('drag-over');
+            });
+
+            // Reset state
+            draggedPiece = null;
+            draggedFrom = null;
+        }
+
         document.addEventListener("DOMContentLoaded", () => {
             initChessboard();
             buatGame();
-
             modalClose.onclick = () => {
                 gameOverModal.style.display = "none";
                 buatGame();
             };
-
             newGameBtn.onclick = () => {
                 if (confirm("Apakah Anda yakin ingin memulai game baru?")) {
                     buatGame();
                 }
             };
-
             undoBtn.onclick = () => {
                 //undoLastMove();
                 alert("GABISA UNDO SAYANG");
