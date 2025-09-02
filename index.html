@@ -37,45 +37,6 @@
             border: 2px solid #333;
         }
 
-        /* Koordinat ditempel absolut */
-        .coord-layer {
-            position: absolute;
-            inset: 0;
-            /* nempel ke tepi papan */
-            pointer-events: none;
-            /* biar tidak ganggu klik bidak */
-            font-weight: bold;
-            color: #444;
-            font-size: 14px;
-        }
-
-        /* styling posisi label */
-        .coord-layer .rank,
-        .coord-layer .file {
-            position: absolute;
-            transform: translate(-50%, -50%);
-        }
-
-
-        .coord-layer .rank {
-            left: -14px;
-        }
-
-        /* angka di kiri papan */
-        .coord-layer .file {
-            bottom: -35px;
-        }
-
-        /* huruf di bawah papan */
-
-        /* Bisa dibikin sedikit responsif */
-        @media (max-width:640px) {
-            .coord-layer {
-                font-size: 12px;
-            }
-        }
-
-
         .file-label {
             text-align: center;
             font-weight: bold;
@@ -324,8 +285,6 @@
             <div class="chessboard-wrapper">
                 <div class="chessboard" id="chessboard"></div>
 
-                <!-- layer label (tidak mengganggu ukuran papan) -->
-                <div class="coord-layer" id="coords"></div>
             </div>
 
         </div>
@@ -824,30 +783,6 @@
             });
             selectedSquare = null;
             possibleMoves = [];
-        }
-
-        function renderCoords() {
-            const layer = document.getElementById('coords');
-            layer.innerHTML = '';
-
-            // angka 8..1 di kiri
-            for (let i = 0; i < 8; i++) {
-                const rank = document.createElement('div');
-                rank.className = 'rank';
-                // posisi persentase tiap kotak: (i + 0.5) * 12.5%
-                rank.style.top = `${(i + 0.5) * 12.5}%`;
-                rank.textContent = 8 - i;
-                layer.appendChild(rank);
-            }
-            // huruf a..h di bawah
-            const files = 'abcdefgh';
-            for (let j = 0; j < 8; j++) {
-                const file = document.createElement('div');
-                file.className = 'file';
-                file.style.left = `${(j + 0.5) * 12.5}%`;
-                file.textContent = files[j];
-                layer.appendChild(file);
-            }
         }
 
         function makeMove(from, to) {
