@@ -19,25 +19,62 @@
             color: rgb(179, 150, 150);
         }
 
+        /* Wrapper tetap center, papan tetap kotak */
         .chessboard-wrapper {
-            display: grid;
-            grid-template-columns: 20px repeat(8, 1fr);
-            grid-template-rows: repeat(8, 1fr) 20px;
-            width: 100%;
-            max-width: 520px;
-            aspect-ratio: 1/1;
-            margin: 20px auto;
             position: relative;
+            width: min(92vw, 520px);
+            margin: 20px auto;
+            /* center */
         }
 
         .chessboard {
-            grid-column: 2 / span 8;
-            grid-row: 1 / span 8;
             display: grid;
             grid-template-columns: repeat(8, 1fr);
             grid-template-rows: repeat(8, 1fr);
+            width: 100%;
+            aspect-ratio: 1/1;
+            /* selalu kotak */
             border: 2px solid #333;
         }
+
+        /* Koordinat ditempel absolut */
+        .coord-layer {
+            position: absolute;
+            inset: 0;
+            /* nempel ke tepi papan */
+            pointer-events: none;
+            /* biar tidak ganggu klik bidak */
+            font-weight: bold;
+            color: #444;
+            font-size: 14px;
+        }
+
+        /* styling posisi label */
+        .coord-layer .rank,
+        .coord-layer .file {
+            position: absolute;
+            transform: translate(-50%, -50%);
+        }
+
+
+        .coord-layer .rank {
+            left: -14px;
+        }
+
+        /* angka di kiri papan */
+        .coord-layer .file {
+            bottom: -35px;
+        }
+
+        /* huruf di bawah papan */
+
+        /* Bisa dibikin sedikit responsif */
+        @media (max-width:640px) {
+            .coord-layer {
+                font-size: 12px;
+            }
+        }
+
 
         .file-label {
             text-align: center;
@@ -282,31 +319,15 @@
                     Undo
                 </button>
             </div>
-            <div class="chessboard-wrapper">
-                <!-- Angka 1–8 (rank) di kiri -->
-                <div class="rank-label" style="grid-row:1">8</div>
-                <div class="rank-label" style="grid-row:2">7</div>
-                <div class="rank-label" style="grid-row:3">6</div>
-                <div class="rank-label" style="grid-row:4">5</div>
-                <div class="rank-label" style="grid-row:5">4</div>
-                <div class="rank-label" style="grid-row:6">3</div>
-                <div class="rank-label" style="grid-row:7">2</div>
-                <div class="rank-label" style="grid-row:8">1</div>
 
-                <!-- Papan catur -->
+            <!-- GANTI BAGIAN INI -->
+            <div class="chessboard-wrapper">
                 <div class="chessboard" id="chessboard"></div>
 
-                <!-- Huruf a–h (file) di bawah -->
-                <div class="file-label" style="grid-column:2">a</div>
-                <div class="file-label" style="grid-column:3">b</div>
-                <div class="file-label" style="grid-column:4">c</div>
-                <div class="file-label" style="grid-column:5">d</div>
-                <div class="file-label" style="grid-column:6">e</div>
-                <div class="file-label" style="grid-column:7">f</div>
-                <div class="file-label" style="grid-column:8">g</div>
-                <div class="file-label" style="grid-column:9">h</div>
+                <!-- layer label (tidak mengganggu ukuran papan) -->
+                <div class="coord-layer" id="coords"></div>
             </div>
-            <!-- <div class="chessboard" id="chessboard"></div> -->
+
         </div>
         <h2 id="ambasing2">Error0982</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -804,6 +825,31 @@
             selectedSquare = null;
             possibleMoves = [];
         }
+
+        function renderCoords() {
+            const layer = document.getElementById('coords');
+            layer.innerHTML = '';
+
+            // angka 8..1 di kiri
+            for (let i = 0; i < 8; i++) {
+                const rank = document.createElement('div');
+                rank.className = 'rank';
+                // posisi persentase tiap kotak: (i + 0.5) * 12.5%
+                rank.style.top = `${(i + 0.5) * 12.5}%`;
+                rank.textContent = 8 - i;
+                layer.appendChild(rank);
+            }
+            // huruf a..h di bawah
+            const files = 'abcdefgh';
+            for (let j = 0; j < 8; j++) {
+                const file = document.createElement('div');
+                file.className = 'file';
+                file.style.left = `${(j + 0.5) * 12.5}%`;
+                file.textContent = files[j];
+                layer.appendChild(file);
+            }
+        }
+
         function makeMove(from, to) {
             if (isAnimating) return;
             try {
@@ -1167,6 +1213,7 @@
         document.addEventListener("DOMContentLoaded", () => {
             initEngine();
             initChessboard();
+            renderCoords();
             buatGame();
             modalClose.onclick = () => {
                 gameOverModal.style.display = "none";
