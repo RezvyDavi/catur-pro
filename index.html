@@ -19,37 +19,68 @@
             color: rgb(179, 150, 150);
         }
 
+        /* Wrapper tetap center, papan tetap kotak */
         .chessboard-wrapper {
-            display: grid;
-            grid-template-columns: 20px repeat(8, 1fr);
-            grid-template-rows: repeat(8, 1fr) 20px;
-            width: 100%;
-            max-width: 640px;
-            /* Diperbesar dari 520px */
-            aspect-ratio: 1/1;
-            margin: 20px auto;
             position: relative;
+            width: min(92vw, 520px);
+            margin: 20px auto;
+            /* center */
         }
 
         .chessboard {
-            grid-column: 2 / span 8;
-            grid-row: 1 / span 8;
             display: grid;
             grid-template-columns: repeat(8, 1fr);
             grid-template-rows: repeat(8, 1fr);
+            width: 100%;
+            aspect-ratio: 1/1;
+            /* selalu kotak */
             border: 2px solid #333;
         }
+
+        /* Koordinat ditempel absolut */
+        .coord-layer {
+            position: absolute;
+            inset: 0;
+            /* nempel ke tepi papan */
+            pointer-events: none;
+            /* biar tidak ganggu klik bidak */
+            font-weight: bold;
+            color: #444;
+            font-size: 14px;
+        }
+
+        /* styling posisi label */
+        .coord-layer .rank,
+        .coord-layer .file {
+            position: absolute;
+            transform: translate(-50%, -50%);
+        }
+
+
+        .coord-layer .rank {
+            left: -14px;
+        }
+
+        /* angka di kiri papan */
+        .coord-layer .file {
+            bottom: -35px;
+        }
+
+        /* huruf di bawah papan */
+
+        /* Bisa dibikin sedikit responsif */
+        @media (max-width:640px) {
+            .coord-layer {
+                font-size: 12px;
+            }
+        }
+
 
         .file-label {
             text-align: center;
             font-weight: bold;
-            font-size: 16px;
-            /* Diperbesar dari 14px */
+            font-size: 14px;
             color: #444;
-            display: flex;
-            align-items: flex-end;
-            justify-content: center;
-            padding-bottom: 4px;
         }
 
         .rank-label {
@@ -57,10 +88,8 @@
             align-items: center;
             justify-content: center;
             font-weight: bold;
-            font-size: 16px;
-            /* Diperbesar dari 14px */
+            font-size: 14px;
             color: #444;
-            padding-right: 4px;
         }
 
         .square {
@@ -101,8 +130,7 @@
         }
 
         .piece {
-            font-size: 48px;
-            /* Diperbesar dari 40px */
+            font-size: 40px;
             width: 100%;
             height: 100%;
             display: flex;
@@ -229,13 +257,7 @@
 
         @media (max-width: 640px) {
             .piece {
-                font-size: 36px;
-                /* Diperbesar dari 30px */
-            }
-
-            .chessboard-wrapper {
-                max-width: 480px;
-                /* Diperbesar untuk mobile */
+                font-size: 30px;
             }
         }
 
@@ -245,6 +267,7 @@
             /* ring merah */
             position: relative;
             /* animation: kingPulse 0.9s ease-in-out infinite; */
+
             animation: kingBlink 1.2s ease-in-out infinite;
         }
 
@@ -277,25 +300,6 @@
                 box-shadow: inset 0 0 0 2px rgba(239, 68, 68, 0.6);
             }
         }
-
-        /* Koordinat di dalam kotak */
-        .coordinate {
-            position: absolute;
-            font-weight: bold;
-            font-size: 12px;
-            color: #444;
-            opacity: 0.7;
-        }
-
-        .coordinate.file {
-            bottom: 2px;
-            right: 2px;
-        }
-
-        .coordinate.rank {
-            top: 2px;
-            left: 2px;
-        }
     </style>
 </head>
 
@@ -315,29 +319,15 @@
                     Undo
                 </button>
             </div>
+
+            <!-- GANTI BAGIAN INI -->
             <div class="chessboard-wrapper">
-                <!-- Angka 1–8 (rank) di kiri -->
-                <!-- <div class="rank-label" style="grid-row:1">8</div>
-                <div class="rank-label" style="grid-row:2">7</div>
-                <div class="rank-label" style="grid-row:3">6</div>
-                <div class="rank-label" style="grid-row:4">5</div>
-                <div class="rank-label" style="grid-row:5">4</div>
-                <div class="rank-label" style="grid-row:6">3</div>
-                <div class="rank-label" style="grid-row:7">2</div>
-                <div class="rank-label" style="grid-row:8">1</div> -->
-                <!-- Papan catur -->
                 <div class="chessboard" id="chessboard"></div>
-                <!-- Huruf a–h (file) di bawah -->
-                <!-- <div class="file-label" style="grid-column:2">a</div>
-                <div class="file-label" style="grid-column:3">b</div>
-                <div class="file-label" style="grid-column:4">c</div>
-                <div class="file-label" style="grid-column:5">d</div>
-                <div class="file-label" style="grid-column:6">e</div>
-                <div class="file-label" style="grid-column:7">f</div>
-                <div class="file-label" style="grid-column:8">g</div>
-                <div class="file-label" style="grid-column:9">h</div> -->
+
+                <!-- layer label (tidak mengganggu ukuran papan) -->
+                <div class="coord-layer" id="coords"></div>
             </div>
-            <!-- <div class="chessboard" id="chessboard"></div> -->
+
         </div>
         <h2 id="ambasing2">Error0982</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -352,6 +342,7 @@
                 <div id="moveHistory" class="text-gray-700 max-h-6 overflow-y-auto whitespace-pre-line">
                     Belum ada langkah
                 </div>
+
             </div>
         </div>
     </div>
@@ -395,6 +386,7 @@
         let draggedPiece = null;
         let draggedFrom = null;
         let isAnimating = false;
+
         const pieceIcons = {
             p: "fa-chess-pawn",
             n: "fa-chess-knight",
@@ -414,7 +406,9 @@
         const currentTurnElement = document.getElementById("currentTurn");
         const moveHistoryElement = document.getElementById("moveHistory");
         // Fungsi utilitas dari backend
+
         const stockfish = new Worker("stockfish.js");
+
         function initEngine() {
             stockfish.onmessage = (e) => {
                 // console.log("Engine:", e.data);
@@ -422,6 +416,7 @@
             stockfish.postMessage("uci");
             stockfish.postMessage("isready");
         }
+
         function getSisaPrajurit(game) {
             const board = game.board();
             let count = 0;
@@ -432,14 +427,18 @@
             }
             return count;
         }
+
         function animateMoveClick(from, to, onDone) {
             const fromSq = document.querySelector(`[data-pos="${from}"]`);
             const toSq = document.querySelector(`[data-pos="${to}"]`);
             if (!fromSq || !toSq) { onDone?.(); return; }
+
             const pieceEl = fromSq.querySelector('.piece');
             if (!pieceEl) { onDone?.(); return; }
+
             const fromRect = pieceEl.getBoundingClientRect();
             const toRect = toSq.getBoundingClientRect();
+
             const ghost = pieceEl.cloneNode(true);
             ghost.style.position = 'fixed';
             ghost.style.left = `${fromRect.left}px`;
@@ -451,15 +450,20 @@
             ghost.style.transition = 'transform 280ms cubic-bezier(.2,.7,.3,1)';
             ghost.style.willChange = 'transform';
             document.body.appendChild(ghost);
+
             // sembunyikan bidak asli
             pieceEl.style.opacity = '0';
+
             const dx = toRect.left - fromRect.left;
             const dy = toRect.top - fromRect.top;
+
             // jika saat ini papan dalam mode black-turn, ghost juga ikut rotate
             const isBlackTurnNow = document.body.classList.contains('black-turn');
+
             requestAnimationFrame(() => {
                 ghost.style.transform = `translate(${dx}px, ${dy}px)${isBlackTurnNow ? ' rotate(180deg)' : ''}`;
             });
+
             // --- guard: pastikan cleanup hanya sekali ---
             let ended = false;
             const cleanup = () => {
@@ -469,10 +473,12 @@
                 try { pieceEl.style.opacity = ''; } catch { }
                 onDone && onDone();
             };
+
             ghost.addEventListener('transitionend', cleanup, { once: true });
             // fallback sedikit lebih lama dari durasi animasi
             setTimeout(cleanup, 500);
         }
+
 
         function animateRookIfCastling(move, onDone) {
             // flags 'k' (king side), 'q' (queen side)
@@ -491,11 +497,13 @@
             if (!rookFrom || !rookTo) { onDone?.(); return; }
             animateMoveClick(rookFrom, rookTo, onDone);
         }
+
         function uciToReadable(uci) {
             const from = uci.slice(0, 2);
             const to = uci.slice(2, 4);
             return `${from} ke ${to}`;
         }
+
         // cari kotak raja untuk warna tertentu
         function findKingSquare(color) {
             const b = chess.board();
@@ -510,6 +518,7 @@
             }
             return null;
         }
+
         // tambahkan/bersihkan highlight skak pada raja
         function highlightKingInCheck() {
             if (isGameOver) return;
@@ -521,10 +530,13 @@
                 const col = parseInt(sq.dataset.col);
                 sq.style.backgroundColor = (row + col) % 2 === 0 ? '#f0d9b5' : '#b58863';
             });
+
             if (!chess.in_check()) return;
+
             const colorInCheck = chess.turn(); // side yang sedang skak
             const kingPos = findKingSquare(colorInCheck);
             if (!kingPos) return;
+
             const sq = document.querySelector(`[data-pos="${kingPos}"]`);
             if (sq) {
                 sq.classList.add('king-in-check');
@@ -532,6 +544,7 @@
                 sq.style.backgroundColor = '';
             }
         }
+
 
         // Fungsi rekomendasi (gabungan dari backend)
         // getRecommendations(fen, { depth?: number })
@@ -620,17 +633,21 @@
         //         }
         //     }
         // }
+
         async function getRecommendations(fen, opts = {}) {
             return new Promise((resolve) => {
                 const depth = Math.min(Math.max(opts.depth ?? 12, 1), 20);
+
                 const handler = (e) => {
                     const line = e.data;
                     if (typeof line !== "string") return;
+
                     if (line.startsWith("bestmove")) {
                         // Contoh output: "bestmove e2e4 ponder e7e5"
                         const parts = line.split(" ");
                         const uci = parts[1];
                         stockfish.removeEventListener("message", handler);
+
                         resolve([{
                             move: uciToReadable(uci),
                             eval: "??",   // evaluasi bisa diambil dari info score
@@ -638,6 +655,7 @@
                         }]);
                     }
                 };
+
                 stockfish.addEventListener("message", handler);
                 stockfish.postMessage("ucinewgame");
                 stockfish.postMessage(`position fen ${fen}`);
@@ -645,6 +663,7 @@
                 // console.log("anjing kalung")
             });
         }
+
 
         function initChessboard() {
             const chessboard = document.getElementById("chessboard");
@@ -660,24 +679,6 @@
                     square.addEventListener("dragover", handleDragOver);
                     square.addEventListener("drop", handleDrop);
                     square.addEventListener("dragleave", handleDragLeave);
-
-                    // Tambahkan koordinat di dalam kotak
-                    // File (a-h) di pojok kanan bawah
-                    if (row === 7) {
-                        const fileCoord = document.createElement("div");
-                        fileCoord.className = "coordinate file";
-                        fileCoord.textContent = String.fromCharCode(97 + col);
-                        square.appendChild(fileCoord);
-                    }
-
-                    // Rank (1-8) di pojok kiri atas
-                    if (col === 0) {
-                        const rankCoord = document.createElement("div");
-                        rankCoord.className = "coordinate rank";
-                        rankCoord.textContent = 8 - row;
-                        square.appendChild(rankCoord);
-                    }
-
                     chessboard.appendChild(square);
                 }
             }
@@ -688,10 +689,13 @@
             const fenParts = fen.split(" ");
             const piecePlacement = fenParts[0];
             currentTurn = fenParts[1] || "w";
+
             // Update tampilan giliran
             currentTurnElement.textContent = currentTurn === "w" ? "Putih" : "Hitam";
+
             const deferFlipMs = opts.deferFlipMs || 0;
             setTurnClass(currentTurn, { deferMs: deferFlipMs });
+
             let row = 0, col = 0;
             for (const char of piecePlacement) {
                 if (char === "/") { row++; col = 0; }
@@ -714,12 +718,14 @@
                     col += parseInt(char);
                 }
             }
+
             // Update rotasi bidak berdasarkan giliran
             // if (currentTurn === 'b') {
             //     document.body.classList.add('black-turn');
             // } else {
             //     document.body.classList.remove('black-turn');
             // }
+
             // let row = 0;
             // let col = 0;
             for (const char of piecePlacement) {
@@ -736,6 +742,7 @@
                         icon.className = `fas ${pieceIcons[pieceType]}`;
                         piece.appendChild(icon);
                         square.appendChild(piece);
+
                         // Tambahkan event listener untuk drag and drop
                         piece.draggable = true;
                         piece.addEventListener("dragstart", handleDragStart);
@@ -798,6 +805,7 @@
                 }
             });
         }
+
         function setTurnClass(turn, { deferMs = 0 } = {}) {
             const apply = () => {
                 document.body.classList.toggle('black-turn', turn === 'b');
@@ -805,6 +813,7 @@
             if (deferMs > 0) setTimeout(apply, deferMs);
             else apply();
         }
+
 
         function deselectPiece() {
             if (selectedSquare) {
@@ -816,6 +825,31 @@
             selectedSquare = null;
             possibleMoves = [];
         }
+
+        function renderCoords() {
+            const layer = document.getElementById('coords');
+            layer.innerHTML = '';
+
+            // angka 8..1 di kiri
+            for (let i = 0; i < 8; i++) {
+                const rank = document.createElement('div');
+                rank.className = 'rank';
+                // posisi persentase tiap kotak: (i + 0.5) * 12.5%
+                rank.style.top = `${(i + 0.5) * 12.5}%`;
+                rank.textContent = 8 - i;
+                layer.appendChild(rank);
+            }
+            // huruf a..h di bawah
+            const files = 'abcdefgh';
+            for (let j = 0; j < 8; j++) {
+                const file = document.createElement('div');
+                file.className = 'file';
+                file.style.left = `${(j + 0.5) * 12.5}%`;
+                file.textContent = files[j];
+                layer.appendChild(file);
+            }
+        }
+
         function makeMove(from, to) {
             if (isAnimating) return;
             try {
@@ -839,17 +873,20 @@
                 }
                 deselectPiece();
                 isAnimating = true;
+
                 animateMoveClick(from, to, () => {
                     // rokade: animasikan rook dulu (opsional)
                     animateRookIfCastling(hasil, () => {
                         // setelah animasi selesai, baru render ulang papan
                         updateChessboard(chess.fen(), { deferFlipMs: 125 });
+
                         updateRecommendations();
                         checkGameStatus();
                         isAnimating = false;
                         // document.body.style.cursor = ''
                     });
                 });
+
                 // Tambahkan ke riwayat langkah
                 addToMoveHistory(hasil);
                 // updateChessboard(chess.fen());
@@ -893,16 +930,19 @@
                     deselectPiece();
                     return;
                 }
+
                 deselectPiece();
                 // === ANIMASI PROMOSI ===
                 isAnimating = true;
                 animateMoveClick(from, to, () => {
                     updateChessboard(chess.fen(), { deferFlipMs: 125 });
+
                     updateRecommendations();
                     checkGameStatus();
                     isAnimating = false;
                 });
                 addToMoveHistory(hasil);
+
 
                 // Tambahkan ke riwayat langkah
                 addToMoveHistory(hasil);
@@ -935,9 +975,11 @@
                 const color = move.color === "w" ? "Putih" : "Hitam";
                 historyText += `${i + 1}. ${pieceName} ke ${move.to} (${color})\n`;
             }
+
             moveHistoryElement.textContent = historyText;
             moveHistoryElement.scrollTop = moveHistoryElement.scrollHeight;
         }
+
         function getPieceNameForHistory(type) {
             const names = {
                 p: "Pion",
@@ -950,8 +992,10 @@
             return names[type] || type;
         }
 
+
         function checkGameStatus() {
             highlightKingInCheck();
+
             if (chess.in_checkmate()) {
                 showGameOver(
                     "Skakmat!",
@@ -959,29 +1003,36 @@
                 );
                 return;
             }
+
             if (chess.in_stalemate()) {
                 showGameOver("Seri!", "Stalemate (pemain tidak punya langkah legal dan tidak dalam skak).");
                 return;
             }
+
             if (typeof chess.insufficient_material === "function" && chess.insufficient_material()) {
                 showGameOver("Seri!", "Material tidak cukup untuk skakmat.");
                 return;
             }
+
             if (typeof chess.in_threefold_repetition === "function" && chess.in_threefold_repetition()) {
                 showGameOver("Seri!", "Repetisi tiga kali posisi yang sama.");
                 return;
             }
+
             const fenParts = chess.fen().split(" ");
             const halfmoveClock = parseInt(fenParts[4], 10) || 0;
             if (halfmoveClock >= 100) {
                 showGameOver("Seri!", "Aturan 50 langkah tercapai (tanpa gerak pion / tangkap).");
                 return;
             }
+
             if (chess.in_draw()) {
                 showGameOver("Seri!", "Permainan berakhir seri.");
                 return;
             }
+
         }
+
         function clearCheckHighlights() {
             document.querySelectorAll('.square.king-in-check').forEach(sq => {
                 sq.classList.remove('king-in-check');
@@ -991,15 +1042,19 @@
                 sq.style.backgroundColor = (row + col) % 2 === 0 ? '#f0d9b5' : '#b58863';
             });
         }
+
         function showGameOver(title, message) {
             modalTitle.textContent = title;
             modalMessage.textContent = message;
             isGameOver = true;
+
             clearCheckHighlights()
+
             setTimeout(() => {
                 gameOverModal.style.display = "flex";
             }, 1000);
         }
+
         function buatGame() {
             chess = new Chess();
             moveHistory = [];
@@ -1007,6 +1062,7 @@
             isGameOver = false;
             clearCheckHighlights();
             updateChessboard(chess.fen(), { deferFlipMs: 125 });
+
             deselectPiece();
             // checkNotification.classList.add("hidden");
             gameOverModal.style.display = "none";
@@ -1019,6 +1075,7 @@
             console.log("Sebelum undo:", chess.fen());
             chess.undo();
             updateChessboard(chess.fen(), { deferFlipMs: 125 });
+
             deselectPiece();
             // Update riwayat langkah
             if (moveHistory.length > 0) {
@@ -1077,68 +1134,86 @@
             document.getElementById("ambasing").textContent = rekomStr;
             document.getElementById("ambasing2").textContent = rekomStr;
         }
+
         // Drag and Drop functions
         function handleDragStart(e) {
             const piece = e.target;
             const square = piece.closest('.square');
             const pieceColor = piece.classList.contains("white") ? "w" : "b";
+
             // Hanya bidak milik pemain yang sedang giliran yang bisa di-drag
             if (pieceColor !== chess.turn()) {
                 e.preventDefault();
                 return;
             }
+
             draggedPiece = piece;
             draggedFrom = square.dataset.pos;
             piece.classList.add('dragging');
+
             // Tampilkan kemungkinan langkah untuk bidak ini
             selectPiece(square);
+
             // Set data transfer
             e.dataTransfer.effectAllowed = 'move';
             e.dataTransfer.setData('text/plain', draggedFrom);
         }
+
         function handleDragOver(e) {
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
+
             const square = e.target.closest('.square');
             if (square && possibleMoves.includes(square.dataset.pos)) {
                 square.classList.add('drag-over');
             }
         }
+
         function handleDragLeave(e) {
             const square = e.target.closest('.square');
             if (square) {
                 square.classList.remove('drag-over');
             }
         }
+
         function handleDrop(e) {
             e.preventDefault();
             const square = e.target.closest('.square');
             if (!square) return;
+
             square.classList.remove('drag-over');
+
             const to = square.dataset.pos;
+
             // Pastikan drop hanya dilakukan di kotak yang valid
             if (draggedFrom && to && draggedFrom !== to && possibleMoves.includes(to)) {
                 makeMove(draggedFrom, to);
             }
+
             // Reset state
             draggedPiece = null;
             draggedFrom = null;
         }
+
         function handleDragEnd(e) {
             if (draggedPiece) {
                 draggedPiece.classList.remove('dragging');
             }
+
             // Hapus highlight dari semua kotak
             document.querySelectorAll('.drag-over').forEach(square => {
                 square.classList.remove('drag-over');
             });
+
             // Reset state
             draggedPiece = null;
             draggedFrom = null;
         }
+
         document.addEventListener("DOMContentLoaded", () => {
             initEngine();
             initChessboard();
+            // renderCoords();
             buatGame();
             modalClose.onclick = () => {
                 gameOverModal.style.display = "none";
